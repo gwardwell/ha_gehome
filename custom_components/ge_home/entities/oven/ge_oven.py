@@ -49,7 +49,7 @@ class GeOven(GeAbstractWaterHeater):
     @property
     def icon(self) -> str | None:
         return "mdi:stove"
-    
+
     @property
     def supported_features(self):
         if self.remote_enabled:
@@ -80,15 +80,15 @@ class GeOven(GeAbstractWaterHeater):
 
     @property
     def current_temperature(self) -> int | None: # type: ignore
-        #RAW_TEMPERATURE tracks the cavity more accurately than
-        #DISPLAY_TEMPERATURE, so it's preferred when the appliance has it
-        #(see constructor).  However, some ovens advertise the raw ERD but
-        #never populate it (it stays 0); in that case fall back to
-        #DISPLAY_TEMPERATURE so current_temperature isn't stuck at 0.
-        current_temp = self.get_erd_value(self._temperature_erd_code)
-        if not current_temp and self._temperature_erd_code != "DISPLAY_TEMPERATURE":
-            if self.api.has_erd_code(self.get_erd_code("DISPLAY_TEMPERATURE")):
-                current_temp = self.get_erd_value("DISPLAY_TEMPERATURE")
+        # Prefer DISPLAY_TEMPERATURE so the value matches what the oven's own
+        # panel shows. It is empty when the oven is off, so fall back to the
+        # configured ERD (usually RAW_TEMPERATURE). This also covers ovens that
+        # advertise the raw ERD but never populate it (it stays 0).
+        current_temp = None
+        if self.api.has_erd_code(self.get_erd_code("DISPLAY_TEMPERATURE")):
+            current_temp = self.get_erd_value("DISPLAY_TEMPERATURE")
+        if not current_temp:
+            current_temp = self.get_erd_value(self._temperature_erd_code)
         # Kept numeric (not None) for the same reason as target_temperature
         # (#457): consumers float() this value. When there is no reading, fall
         # back to the metric-aware idle placeholder so it shows 0 in the user's
@@ -123,7 +123,7 @@ class GeOven(GeAbstractWaterHeater):
 
         #make sure that we limit them to the list of known codes
         cook_modes = cook_modes.intersection(COOK_MODE_OP_MAP.keys())
-        
+
         _LOGGER.debug(f"Final Cook Modes: {cook_modes}")
         op_modes = [o for o in (COOK_MODE_OP_MAP[c] for c in cook_modes) if o]
         return order_operation_modes(
